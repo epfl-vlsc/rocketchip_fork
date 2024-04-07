@@ -1,4 +1,4 @@
-bootrom_img = bootrom.img
+bootrom_img = bootrom.img bootrom_simple.img
 
 GCC=riscv64-unknown-elf-gcc
 OBJCOPY=riscv64-unknown-elf-objcopy
@@ -13,3 +13,9 @@ all: $(bootrom_img)
 
 %.elf: %.S linker.ld
 	$(GCC) -Tlinker.ld $< -nostdlib -static -Wl,--no-gc-sections -o $@
+
+%.dump: %.elf
+	$(OBJDUMP) -d $< > $@
+
+clean:
+	rm -f *.elf *.dump *.img

@@ -21,6 +21,30 @@ class BaseConfig extends Config(
   new BaseSubsystemConfig()
 )
 
+
+class SimpleBaseConfig extends Config(
+  new WithTLBackingMMIOToHost ++ // toHost snooper
+  new WithDefaultMMIOPort ++
+  new WithNoDebug ++
+  new WithBootROMFile("./bootrom/bootrom_simple.img") ++
+  new WithExtTLMemSize(1 << 18) ++
+  new WithTLMemPort() ++
+  new WithNoMemPort() ++
+  new WithNoSlavePort() ++
+  new WithTimebase(BigInt(1000000)) ++ // 1 MHz
+  new WithDTS("freechips,rocketchip-vlsc", Nil) ++
+  new WithNExtTopInterrupts(2) ++
+  new WithoutTLMonitors() ++
+  new BaseSubsystemConfig()
+)
+
+class BigSingleCoreConfig extends Config(
+  new WithNBigCores(1) ++
+  new WithCoherentBusTopology ++
+  new SimpleBaseConfig
+)
+
+
 class DefaultConfig extends Config(new WithNBigCores(1) ++ new WithCoherentBusTopology ++ new BaseConfig)
 
 class DefaultBufferlessConfig extends Config(new WithBufferlessBroadcastHub ++ new DefaultConfig)

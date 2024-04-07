@@ -12,6 +12,7 @@ import freechips.rocketchip.rocket._
 import freechips.rocketchip.tile._
 import freechips.rocketchip.util._
 
+
 class BaseSubsystemConfig extends Config ((site, here, up) => {
   // Tile parameters
   case PgLevels => if (site(XLen) == 64) 3 /* Sv39 */ else 2 /* Sv32 */
@@ -42,7 +43,7 @@ class BaseSubsystemConfig extends Config ((site, here, up) => {
   case DebugModuleKey => Some(DefaultDebugModuleParams(site(XLen)))
   case CLINTKey => Some(CLINTParams())
   case PLICKey => Some(PLICParams())
-  case TilesLocated(InSubsystem) => 
+  case TilesLocated(InSubsystem) =>
     LegacyTileFieldHelper(site(RocketTilesKey), site(RocketCrossingKey), RocketTileAttachParams.apply _)
 })
 
@@ -347,7 +348,7 @@ class WithRationalRocketTiles extends Config((site, here, up) => {
 class WithEdgeDataBits(dataBits: Int) extends Config((site, here, up) => {
   case MemoryBusKey => up(MemoryBusKey, site).copy(beatBytes = dataBits/8)
   case ExtIn => up(ExtIn, site).map(_.copy(beatBytes = dataBits/8))
-  
+
 })
 
 class WithJtagDTM extends Config ((site, here, up) => {
@@ -495,4 +496,31 @@ class WithControlBusFrequency(freqMHz: Double) extends Config((site, here, up) =
 /** Under the default multi-bus topologies, this leaves bus ClockSinks undriven by the topology itself */
 class WithDontDriveBusClocksFromSBus extends Config((site, here, up) => {
   case DriveClocksFromSBus => false
+})
+
+
+
+
+/** Extra configs for simulation **/
+class WithTLMemPort extends Config((site, here, up) => {
+  case ExtTLMem => Some(MemoryPortParams(MasterPortParams(
+                      base = x"8000_0000",
+                      size = x"1000_0000",
+                      beatBytes = site(MemoryBusKey).beatBytes,
+                      idBits = 4), 1))
+})
+
+class WithTLBackingMMIOToHost extends Config((site, here, up) => {
+    case ExtBus => None
+    case ExtTLBus => up(ExtBus, site).map { m =>
+      m
+    }
+})
+
+class WithExtTLMemSize(n: BigInt) extends Config((site, here, up) => {
+  case ExtTLMem => up(ExtTLMem, site).map(x => x.copy(master = x.master.copy(size = n)))
+})
+
+class WithNoDebug extends Config((site, here, up) => {
+  case DebugModuleKey => None
 })

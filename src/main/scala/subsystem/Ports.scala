@@ -25,6 +25,12 @@ case object ExtMem extends Field[Option[MemoryPortParams]](None)
 case object ExtBus extends Field[Option[MasterPortParams]](None)
 case object ExtIn extends Field[Option[SlavePortParams]](None)
 
+
+// Similar to ExtMem but instantiates a TL mem port
+case object ExtTLMem extends Field[Option[MemoryPortParams]](None)
+case object ExtTLBus extends Field[Option[MasterPortParams]](None)
+
+
 ///// The following traits add ports to the sytem, in some cases converting to different interconnect standards
 
 /** Adds a port to the system intended to master an AXI4 DRAM controller. */
@@ -184,4 +190,80 @@ trait CanHaveSlaveTLPort { this: BaseSubsystem =>
   }
 
   val l2_frontend_bus_tl = InModuleBody { l2FrontendTLNode.makeIOs() }
+}
+
+
+
+trait CanHaveMasterTLMemPort { this: BaseSubsystem =>
+
+  require(!(p(ExtTLMem).nonEmpty && p(ExtMem).nonEmpty),
+    "Only one of ExtTLMem or ExtMem is allowed")
+
+  private val memPortParamsOpt = p(ExtTLMem)
+  private val portName = "tl_mem"
+  private val device = new MemoryDevice
+  private val idBits = memPortParamsOpt.map(_.master.idBits).getOrElse(1)
+
+  val memTLNode = TLManagerNode(memPortParamsOpt.map({ case MemoryPortParams(memPortParams, nMemoryChannels) =>
+    Seq.tabulate(nMemoryChannels) { channel =>
+      val base = AddressSet.misaligned(memPortParams.base, memPortParams.size)
+      val filter = AddressSet(channel * mbus.blockBytes, ~((nMemoryChannels-1) * mbus.blockBytes))
+
+     TLSlavePortParameters.v1(
+       managers = Seq(TLSlaveParameters.v1(
+         address            = base.flatMap(_.intersect(filter)),
+         resources          = device.reg,
+         regionType         = RegionType.UNCACHED, // cacheable
+         executable         = true,
+         supportsGet        = TransferSizes(1, mbus.blockBytes),
+         supportsPutFull    = TransferSizes(1, mbus.blockBytes),
+         supportsPutPartial = TransferSizes(1, mbus.blockBytes))),
+         beatBytes = memPortParams.beatBytes)
+   }
+ }).toList.flatten)
+
+ mbus.coupleTo(s"memory_controller_port_named_$portName") {
+   (memTLNode
+     :*= TLBuffer()
+     :*= TLSourceShrinker(1 << idBits)
+     :*= TLWidthWidget(mbus.beatBytes)
+     :*= _)
+  }
+
+  val mem_tl = InModuleBody { memTLNode.makeIOs() }
+}
+
+
+/** Adds a TileLink port to the system intended to master an MMIO device bus */
+trait CanHaveMasterTLMMIOToHostPort { this: BaseSubsystem =>
+  private val mmioPortParamsOpt = p(ExtTLBus)
+  private val portName = "mmio_port_tl"
+  private val device = new SimpleBus(portName.kebab, Nil)
+
+  val mmioTLNode = TLManagerNode(
+    mmioPortParamsOpt.map(params =>
+      TLSlavePortParameters.v1(
+        managers = Seq(TLSlaveParameters.v1(
+          address            = AddressSet.misaligned(params.base, params.size),
+          resources          = device.ranges,
+          executable         = params.executable,
+          supportsGet        = TransferSizes(1, sbus.blockBytes),
+          supportsPutFull    = TransferSizes(1, sbus.blockBytes),
+          supportsPutPartial = TransferSizes(1, sbus.blockBytes))),
+        beatBytes = params.beatBytes)).toSeq)
+
+  mmioPortParamsOpt.map { params =>
+    sbus.coupleTo(s"port_named_$portName") {
+      (mmioTLNode
+        := TLBuffer()
+        := TLSourceShrinker(1 << params.idBits)
+        := TLWidthWidget(sbus.beatBytes)
+        := _ )
+    }
+  }
+
+  val mmio_tl = InModuleBody {
+    mmioTLNode.out.foreach { case (_, edge) => println(edge.prettySourceMapping(s"TL MMIO Port")) }
+    mmioTLNode.makeIOs()
+  }
 }
