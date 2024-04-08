@@ -467,7 +467,7 @@ class SimMMIOToHostSnooper(toHostOffset: Int, lanes: Int, bits: Int, size: Int) 
     val moduleName = this.getClass.getSimpleName
 
     setInline(s"${moduleName}.sv",
-        s"""|module $moduleName #(parameter SIZE = 8192,
+        s"""|module SimMMIOToHostSnooper #(parameter SIZE = 8192,
             |                     parameter BITS = 8,
             |                     parameter LANES = 8,
             |                     parameter OFFSET = 'h0,
@@ -484,7 +484,6 @@ class SimMMIOToHostSnooper(toHostOffset: Int, lanes: Int, bits: Int, size: Int) 
             |   output wire [BITS * LANES - 1 : 0] rdata
             |);
             |
-            |
             |   logic [ADDR_BITS - 1 : 0] addr_q;
             |   logic wen_q;
             |   logic [LANES - 1 : 0] wstrb_q;
@@ -492,6 +491,7 @@ class SimMMIOToHostSnooper(toHostOffset: Int, lanes: Int, bits: Int, size: Int) 
             |   logic [63 : 0] cycle_counter = 0;
             |   assign rdata = 0;
             |   always_ff @(posedge clock) cycle_counter <= cycle_counter + 1;
+            |   logic [BITS * LANES - 1 : 0] storage [0 : SIZE - 1];
             |   always_ff @(posedge clock) begin
             |     if (reset) begin
             |         wen_q <= 0;
@@ -501,26 +501,46 @@ class SimMMIOToHostSnooper(toHostOffset: Int, lanes: Int, bits: Int, size: Int) 
             |         wen_q <= wen;
             |         wstrb_q <= wstrb;
             |         wdata_q <= wdata;
-            |       end
+            |         for (int i = 0; i < LANES; i = i + 1) begin
+            |             if (wstrb[i]) begin
+            |                 storage[addr][i * BITS +: BITS] <= wdata[i * BITS +: BITS];
+            |             end
+            |         end
+            |     end else begin
+            |       wen_q <= 0;
+            |     end
             |   end
             |`ifndef SYNTHESIS
             |   always_ff @(posedge clock) begin
             |          if (wen_q && wstrb_q[3:0] == 4'b1111 && addr_q == OFFSET) begin
-            |            if (wdata_q[31:0] != 1) begin
-            |              $$display("@%d: Test failed with toHost %d", cycle_counter, wdata_q);
-            |              $$stop;
-            |            end else begin
+            |            if (wdata_q[0] == 1 && wdata_q[31:1] == 0) begin
             |              $$display("@%d: Test passed", cycle_counter);
             |              $$finish;
+            |            end else if (wdata_q[0] == 1 && wdata_q[31:1] != 0) begin
+            |              $$display("@%d: Test failed with toHost %d", cycle_counter, wdata_q);
+            |              $$stop;
+            |            end else if (wdata_q[0] == 0) begin
+            |              // emulate syscall
+            |              if (wdata_q[31:1] == 64) begin
+            |                  int i, j;
+            |                  i = 1; j = 0;
+            |                  // hacky
+            |                  for (int k = 0; k < 64; k = k + 1) begin
+            |                    if (storage[i][j * BITS +: BITS] != 0) begin
+            |                      $$fwrite("%s", string'(storage[i][j * BITS +: BITS]));
+            |                    end
+            |                    i = (j == LANES - 1) ? i + 1 : i;
+            |                    j = (j == LANES - 1) ? 0 : j + 1;
+            |                  end
+            |              end else begin
+            |                 $$display("@%d unknown system call %h", cycle_counter, wdata_q[31:1]);
+            |                 $$stop;
+            |              end
             |            end
-            |          end else if (wen_q && wstrb_q != 0) begin
-            |              $$display("@%d: Unexpected MMIO write\\n\\taddr: 0x%h wdata: 0x%h wstrb: %b", cycle_counter, addr_q, wdata_q, wstrb_q);
-            |              // $$stop;
             |          end
             |   end
             |`endif
             |endmodule
-            |
             |""".stripMargin
 
     )
