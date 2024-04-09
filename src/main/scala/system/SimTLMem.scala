@@ -525,12 +525,14 @@ class SimMMIOToHostSnooper(toHostOffset: Int, lanes: Int, bits: Int, size: Int) 
             |            end else if (wdata_q[0] == 0) begin
             |              // emulate syscall
             |              if (wdata_q[31:1] == 64) begin
-            |                  int i, j;
-            |                  i = 1; j = 0;
+            |                  int i, j, done_printing;
+            |                  i = 1; j = 0; done_printing = 0;
             |                  // hacky
             |                  for (int k = 0; k < 64; k = k + 1) begin
-            |                    if (storage[i][j * BITS +: BITS] != 0) begin
+            |                    if (done_printing != 1 && storage[i][j * BITS +: BITS] != 0) begin
             |                      $$fwrite("%s", string'(storage[i][j * BITS +: BITS]));
+            |                    end else begin
+            |                       done_printing = 1;
             |                    end
             |                    i = (j == LANES - 1) ? i + 1 : i;
             |                    j = (j == LANES - 1) ? 0 : j + 1;
