@@ -7,3 +7,9 @@
 [submodule "api-config-chipsalliance"]
 	path = api-config-chipsalliance
 	url = https://github.com/chipsalliance/api-config-chipsalliance.git
+[submodule "emulator/firrtl-sig"]
+	path = emulator/firrtl-sig
+	url = https://github.com/ucsc-vama/firrtl-sig.git
+[submodule "emulator/kahypar"]
+	path = emulator/kahypar
+	url = https://github.com/kahypar/kahypar.git

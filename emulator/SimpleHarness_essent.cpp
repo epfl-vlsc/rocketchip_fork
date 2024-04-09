@@ -5,26 +5,53 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cstring>
 #include ESSENT_MODEL
 
-void writeWord(std::vector<uint64_t> &storage, uint64_t wstrb_old,
-               uint64_t addr_old, uint64_t wdata_old) {
-  for (int i = 0; i < 8; i++) {
-    bool ben = (wstrb_old >> i) & 1u;
-    if (ben) {
-      uint64_t mask = 0x00ffull << static_cast<uint64_t>(8 * i);
-      if (addr_old < storage.size()) {
-        // uint64_t reverseMask = ~(0x00ffull << static_cast<uint64_t>(8 *
-        // i));
-        // std::cout << "mask " << std::hex << mask << "->"
-        //           << wdata_old << " ";
-        storage[addr_old] &= ~mask;
-        storage[addr_old] |= (mask & wdata_old);
+struct CommonImpl {
+  template <typename Bundle>
+  static void combeval(const Bundle& bundle, bool &wen_old, uint64_t &addr_old,
+                       uint64_t &wdata_old, uint64_t &wstrb_old) {
+#ifdef NO_THREADS
+    wen_old = bundle.srams.mem.wen.as_single_word();
+    addr_old = bundle.srams.mem.addr.as_single_word();
+    wstrb_old = bundle.srams.mem.wstrb.as_single_word();
+    wdata_old = bundle.srams.mem.wdata.as_single_word();
+#else
+    wen_old = bundle.wen.as_single_word();
+    addr_old = bundle.addr.as_single_word();
+    wstrb_old = bundle.wstrb.as_single_word();
+    wdata_old = bundle.wdata.as_single_word();
+#endif
+  }
+
+  // template <typename Bundle>
+  // static void combeval(Bundle *bundle, bool &wen_old, uint64_t &addr_old,
+  //                      uint64_t &wdata_old, uint64_t &wstrb_old) {
+  //   wen_old = bundle->wen.as_single_word();
+  //   addr_old = bundle->addr.as_single_word();
+  //   wstrb_old = bundle->wstrb.as_single_word();
+  //   wdata_old = bundle->wdata.as_single_word();
+  // }
+  static void writeWord(std::vector<uint64_t> &storage, uint64_t wstrb_old,
+                        uint64_t addr_old, uint64_t wdata_old) {
+    for (int i = 0; i < 8; i++) {
+      bool ben = (wstrb_old >> i) & 1u;
+      if (ben) {
+        uint64_t mask = 0x00ffull << static_cast<uint64_t>(8 * i);
+        if (addr_old < storage.size()) {
+          // uint64_t reverseMask = ~(0x00ffull << static_cast<uint64_t>(8 *
+          // i));
+          // std::cout << "mask " << std::hex << mask << "->"
+          //           << wdata_old << " ";
+          storage[addr_old] &= ~mask;
+          storage[addr_old] |= (mask & wdata_old);
+        }
+        // std::cout << " => " << storage[addr_old] << std::endl;
       }
-      // std::cout << " => " << storage[addr_old] << std::endl;
     }
   }
-}
+};
 struct ToHostSnooper {
   std::vector<uint64_t> storage;
   ToHostSnooper() : storage(128, 0){};
@@ -34,15 +61,19 @@ struct ToHostSnooper {
   uint64_t wstrb_old;
 
   void combeval(SimpleHarness *dut) {
-    wen_old = dut->mmio.srams.mem.wen.as_single_word();
-    addr_old = dut->mmio.srams.mem.addr.as_single_word();
-    wstrb_old = dut->mmio.srams.mem.wstrb.as_single_word();
-    wdata_old = dut->mmio.srams.mem.wdata.as_single_word();
+
+    CommonImpl::combeval(
+#ifdef NO_THREADS
+      dut->mmio,
+#else
+      dut->mmio_srams_mem,
+#endif
+      wen_old, addr_old, wdata_old, wstrb_old);
   }
 
   void tick(SimpleHarness *dut, int cycleCount, bool &finish, bool &stop) {
     if (wen_old) {
-      writeWord(storage, wstrb_old, addr_old, wdata_old);
+      CommonImpl::writeWord(storage, wstrb_old, addr_old, wdata_old);
     }
     if (wen_old && (wstrb_old & 0xf) == 0xf && addr_old == 0) {
       if (wdata_old & 0x1 && (wdata_old >> 1ull) == 0) {
@@ -60,7 +91,7 @@ struct ToHostSnooper {
           // SYS_WRITE
           const char *buff = reinterpret_cast<const char *>(storage.data() + 1);
           for (int i = 0; i < 64; i++) {
-            if (!buff)
+            if (buff[i]==0)
               break;
             std::cout << buff[i];
           }
@@ -87,6 +118,10 @@ struct HexMem {
   void loadHex(const std::string &filename) {
     std::ifstream ifs(filename, std::ios::in);
     int i = 0;
+    if (!ifs) {
+      std::cerr << "Could not load hex file" << std::endl;
+      std::exit(-1);
+    }
     while (!ifs.eof()) {
       std::string line;
       ifs >> line;
@@ -98,20 +133,26 @@ struct HexMem {
     }
   }
   void combeval(SimpleHarness *dut) {
-    wen_old = dut->mem.srams.mem.wen.as_single_word();
-    addr_old = dut->mem.srams.mem.addr.as_single_word();
-    wstrb_old = dut->mem.srams.mem.wstrb.as_single_word();
-    wdata_old = dut->mem.srams.mem.wdata.as_single_word();
-    // dut->mem.srams.mem.rdata = UInt<64>(storage[addr_old]);
+    CommonImpl::combeval(
+#ifdef NO_THREADS
+      dut->mem,
+#else
+      dut->mem_srams_mem,
+#endif
+      wen_old, addr_old, wdata_old, wstrb_old);
   }
   void tick(SimpleHarness *dut) {
     if (wen_old) {
-      writeWord(storage, wstrb_old, addr_old, wdata_old);
+      CommonImpl::writeWord(storage, wstrb_old, addr_old, wdata_old);
     }
     // std::cout << "Read 0x" << std::hex << hi << "_" << std::hex << lo  << "
     // " << std::hex << "storage[" << addr_old << "] = " << storage[addr_old]
     // << std::endl;
+#ifdef NO_THREADS
     dut->mem.srams.mem.rdata = UInt<64>(storage[addr_old]);
+#else
+    dut->mem_srams_mem.rdata = UInt<64>(storage[addr_old]);
+#endif
   }
 };
 
