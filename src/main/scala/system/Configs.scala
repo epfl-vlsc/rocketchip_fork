@@ -22,28 +22,6 @@ class BaseConfig extends Config(
 )
 
 
-class SimpleBaseConfig extends Config(
-  new WithTLBackingMMIOToHost ++ // toHost snooper
-  new WithDefaultMMIOPort ++
-  new WithNoDebug ++
-  new WithBootROMFile("./bootrom/bootrom_simple.img") ++
-  new WithExtTLMemSize(1 << 18) ++
-  new WithTLMemPort() ++
-  new WithNoMemPort() ++
-  new WithNoSlavePort() ++
-  new WithTimebase(BigInt(1000000)) ++ // 1 MHz
-  new WithDTS("freechips,rocketchip-vlsc", Nil) ++
-  new WithNExtTopInterrupts(2) ++
-  new WithoutTLMonitors() ++
-  new BaseSubsystemConfig()
-)
-
-class BigSingleCoreConfig extends Config(
-  new WithNBigCores(1) ++
-  new WithCoherentBusTopology ++
-  new SimpleBaseConfig
-)
-
 
 class DefaultConfig extends Config(new WithNBigCores(1) ++ new WithCoherentBusTopology ++ new BaseConfig)
 
@@ -108,3 +86,55 @@ class MMIOPortOnlyConfig extends Config(
 
 class BaseFPGAConfig extends Config(new BaseConfig ++ new WithCoherentBusTopology)
 class DefaultFPGAConfig extends Config(new WithNSmallCores(1) ++ new BaseFPGAConfig)
+
+
+class ParendiBaseConfig extends Config(
+  new WithTLBackingMMIOToHost ++ // toHost snooper
+  new WithDefaultMMIOPort ++
+  new WithNoDebug ++
+  new WithBootROMFile("./bootrom/bootrom_simple.img") ++
+  new WithExtTLMemSize(1 << 18) ++
+  new WithTLMemPort() ++
+  new WithNoMemPort() ++
+  new WithNoSlavePort() ++
+  new WithTimebase(BigInt(1000000)) ++ // 1 MHz
+  new WithDTS("freechips,rocketchip-vlsc", Nil) ++
+  new WithNExtTopInterrupts(2) ++
+  new WithoutTLMonitors() ++
+  new BaseSubsystemConfig()
+)
+
+
+class ParendiBigNCoreConfig(n: Int) extends Config(
+  new WithNBigCores(n) ++
+  new WithCoherentBusTopology ++
+  new ParendiBaseConfig
+)
+
+class ParendiSmallNCoreConfig(n: Int) extends Config(
+  new WithNSmallCores(n) ++
+  new WithCoherentBusTopology ++
+  new ParendiBaseConfig
+)
+
+
+
+class ParendiBig1CoreConfig extends ParendiBigNCoreConfig(1)
+class ParendiBig2CoreConfig extends ParendiBigNCoreConfig(2)
+class ParendiBig3CoreConfig extends ParendiBigNCoreConfig(3)
+class ParendiBig4CoreConfig extends ParendiBigNCoreConfig(4)
+class ParendiBig5CoreConfig extends ParendiBigNCoreConfig(5)
+class ParendiBig6CoreConfig extends ParendiBigNCoreConfig(6)
+class ParendiBig7CoreConfig extends ParendiBigNCoreConfig(7)
+class ParendiBig8CoreConfig extends ParendiBigNCoreConfig(8)
+
+
+class ParendiSmall1CoreConfig extends ParendiSmallNCoreConfig(1)
+class ParendiSmall2CoreConfig extends ParendiSmallNCoreConfig(2)
+class ParendiSmall3CoreConfig extends ParendiSmallNCoreConfig(3)
+class ParendiSmall4CoreConfig extends ParendiSmallNCoreConfig(4)
+class ParendiSmall5CoreConfig extends ParendiSmallNCoreConfig(5)
+class ParendiSmall6CoreConfig extends ParendiSmallNCoreConfig(6)
+class ParendiSmall7CoreConfig extends ParendiSmallNCoreConfig(7)
+class ParendiSmall8CoreConfig extends ParendiSmallNCoreConfig(8)
+

@@ -370,9 +370,12 @@ class SimTLRAM(
     val rdata_vec = VecInit(Seq.tabulate(lanes) { i => mem.io.rdata(beatBytes * (i + 1) - 1, beatBytes * i)})
     val ren_next = RegNext(ren)
     r_raw_data := Mux(ren_next, rdata_vec, RegEnable(rdata_vec, ren_next))
-
-
+    // val index_next = RegNext(index)
+    // when(ren_next) {
+      // printf("Read mem[0x%x] as 0x%x\n", index_next, rdata_vec.asUInt())
+    // }
     when (wen) {
+      // printf("Write mem[%x] <= %x %x\n", index, coded.asUInt, sel)
       mem.io.wdata := coded.asUInt
       mem.io.wen := true.B
       mem.io.addr := index
