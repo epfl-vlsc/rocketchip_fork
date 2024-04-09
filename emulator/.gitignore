@@ -9,3 +9,8 @@ generated-src-debug
 kernel
 kernel.hex
 verilator/
+verilator-*
+essent-*
+repcut-*
+*.vcd
+*.txt

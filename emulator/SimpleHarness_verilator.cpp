@@ -24,9 +24,8 @@ double sc_time_stamp() { return 0; }
 
 int main(int argc, char **argv, char **env) {
 
-  auto start = std::chrono::high_resolution_clock::now();
-
   const auto top = std::make_unique<VMain>();
+
 
   Verilated::commandArgs(argc, argv);
 #if VM_TRACE
@@ -35,7 +34,7 @@ int main(int argc, char **argv, char **env) {
   top->trace(tfp, 99); // Trace 99 levels of hierarchy
   tfp->open("trace.vcd");
 #endif
-
+  auto start = std::chrono::high_resolution_clock::now();
   int time = 0;
   top->clk = 0;
 
