@@ -486,7 +486,12 @@ class SimMMIOToHostSnooper(toHostOffset: Int, lanes: Int, bits: Int, size: Int) 
             |   input  wire reset,
             |   output wire [BITS * LANES - 1 : 0] rdata
             |);
-            |
+            |   initial begin
+            |      if (BITS != 8) begin
+            |        $$display("BITS should be 8!");
+            |        $$stop;
+            |      end
+            |   end
             |   logic [ADDR_BITS - 1 : 0] addr_q;
             |   logic wen_q;
             |   logic [LANES - 1 : 0] wstrb_q;
@@ -513,6 +518,7 @@ class SimMMIOToHostSnooper(toHostOffset: Int, lanes: Int, bits: Int, size: Int) 
             |       wen_q <= 0;
             |     end
             |   end
+            |   localparam BUFFER_SIZE = 64;
             |`ifndef SYNTHESIS
             |   always_ff @(posedge clock) begin
             |          if (wen_q && wstrb_q[3:0] == 4'b1111 && addr_q == OFFSET) begin
@@ -524,18 +530,20 @@ class SimMMIOToHostSnooper(toHostOffset: Int, lanes: Int, bits: Int, size: Int) 
             |              $$stop;
             |            end else if (wdata_q[0] == 0) begin
             |              // emulate syscall
-            |              if (wdata_q[31:1] == 64) begin
-            |                  int i, j, done_printing;
-            |                  i = 1; j = 0; done_printing = 0;
+            |              if (wdata_q[31:1] == BUFFER_SIZE) begin
+            |                  int i, j, done_printing, k;
+            |                  string buffer = {BUFFER_SIZE{" "}};
+            |                  automatic logic [7 : 0] current_char;
+            |                  i = 1; j = 0; done_printing = 0; k = 0;
             |                  // hacky
-            |                  for (int k = 0; k < 64; k = k + 1) begin
-            |                    if (done_printing != 1 && storage[i][j * BITS +: BITS] != 0) begin
-            |                      $$fwrite("%s", string'(storage[i][j * BITS +: BITS]));
-            |                    end else begin
-            |                       done_printing = 1;
-            |                    end
+            |                  while(storage[i][j * BITS +: BITS] != 0) begin
+            |                    buffer[k] = storage[i][j * BITS +: BITS];
             |                    i = (j == LANES - 1) ? i + 1 : i;
             |                    j = (j == LANES - 1) ? 0 : j + 1;
+            |                    k = k + 1;
+            |                  end
+            |                  if (k > 0) begin
+            |                    $$fwrite(1, "%0s", buffer.substr(0, k - 1));
             |                  end
             |              end else begin
             |                 $$display("@%d unknown system call %h", cycle_counter, wdata_q[31:1]);
@@ -546,6 +554,7 @@ class SimMMIOToHostSnooper(toHostOffset: Int, lanes: Int, bits: Int, size: Int) 
             |   end
             |`endif
             |endmodule
+            |
             |""".stripMargin
 
     )
