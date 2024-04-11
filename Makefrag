@@ -19,7 +19,7 @@ VLSI_MEM_GEN ?= $(base_dir)/scripts/vlsi_mem_gen
 
 CXX ?= g++
 CXXFLAGS := -O1
-JVM_MEMORY ?= 2G
+JVM_MEMORY ?= 16G
 
 EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
@@ -34,8 +34,10 @@ endif
 SBT ?= java -Xmx$(JVM_MEMORY) -Xss8M -jar $(base_dir)/sbt-launch.jar
 SHELL := /bin/bash
 
-FIRRTL_TRANSFORMS := \
+FIRRTL_TRANSFORMS ?= \
 	firrtl.passes.InlineInstances \
+
+	# freechips.rocketchip.system.RemovePrintfAndStop
 
 FIRRTL_TEST_JAR ?= $(base_dir)/firrtl/utils/bin/firrtl-test.jar
 

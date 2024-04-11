@@ -10,10 +10,14 @@ include $(base_dir)/Makefrag
 
 THREADS ?= 1
 
-emu = verilator-$(PROJECT)-$(CONFIG)-$(THREADS)t
+emu = verilator-$(CONFIG)-$(THREADS)t
 emu_debug = $(emu)-debug
 
-emu_essent = essent-$(PROJECT)-$(CONFIG)-$(THREADS)t
+emu_essent = essent-$(CONFIG)-$(THREADS)t
+
+source_artifacts = sources-$(PROJECT)-$(CONFIG)-$(THREADS)t.tar.gz
+binary_artifacts = $(emu) $(emu_essent)
+
 
 all: $(emu)
 debug: $(emu_debug)
@@ -24,6 +28,10 @@ debug: $(emu_debug)
 # Verilator Generation
 #--------------------------------------------------------------------
 firrtl = $(generated_dir)/$(long_name).fir
+hi_firrtl = $(generated_dir)/$(long_name).hi.fir
+hi_firrtl_copy = $(generated_dir)/$(long_name)/$(THREADS)t/$(MODEL).hi.fir
+
+
 verilog = \
   $(generated_dir)/$(long_name).v \
   $(generated_dir)/$(long_name).behav_srams.v \
@@ -47,27 +55,33 @@ build_kahypar: $(kahypar_bin)
 
 .SECONDARY: $(firrtl) $(verilog)
 
-$(generated_dir)/%.fir $(generated_dir)/%.d: $(ROCKET_CHIP_JAR) $(bootrom_img)
+$(generated_dir)/$(long_name).fir $(generated_dir)/$(long_name).d: $(ROCKET_CHIP_JAR) $(bootrom_img)
 	mkdir -p $(dir $@)
 	cd $(base_dir) && $(GENERATOR) -td $(generated_dir) -T $(PROJECT).$(MODEL) -C $(CONFIG) $(CHISEL_OPTIONS)
 
-%.v %.conf: %.fir $(ROCKET_CHIP_JAR)
-	mkdir -p $(dir $@)
-	$(FIRRTL) $(patsubst %,-i %,$(filter %.fir,$^)) \
-    -o $*.v \
-    -X verilog \
+
+
+FIRRTL_SUBCOMMAND = \
+  mkdir -p $(dir $@) && \
+	$(FIRRTL) -i $< \
     --infer-rw $(MODEL) \
-    --repl-seq-mem -c:$(MODEL):-o:$*.conf \
-    -faf $*.anno.json \
+    --repl-seq-mem -c:$(MODEL):-o:$(generated_dir)/$(long_name).conf \
+    -faf $(generated_dir)/$(long_name).anno.json \
     -td $(generated_dir)/$(long_name)/ \
     -fct $(subst $(SPACE),$(COMMA),$(FIRRTL_TRANSFORMS)) \
-    $(FIRRTL_OPTIONS) \
+    $(FIRRTL_OPTIONS)
 
+
+$(generated_dir)/$(long_name).hi.fir: $(generated_dir)/$(long_name).fir $(ROCKET_CHIP_JAR)
+	@echo "Generating LOW FIRRTL for ESSENT"
+	$(FIRRTL_SUBCOMMAND) -X high -o $@
+
+$(generated_dir)/$(long_name).v $(generated_dir)/$(long_name).conf: $(generated_dir)/$(long_name).fir $(ROCKET_CHIP_JAR)
+	$(FIRRTL_SUBCOMMAND) -X verilog -o $(generated_dir)/$(long_name).v
 
 $(generated_dir)/$(long_name).behav_srams.v : $(generated_dir)/$(long_name).conf $(VLSI_MEM_GEN)
 	cd $(generated_dir) && \
-	$(VLSI_MEM_GEN) $(generated_dir)/$(long_name).conf > $@.tmp && \
-	mv -f $@.tmp $@
+	$(VLSI_MEM_GEN) $(generated_dir)/$(long_name).conf > $@
 
 
 VERILATOR := verilator --cc --exe --threads $(THREADS)
@@ -77,18 +91,23 @@ VERILATOR_FLAGS := --top-module Main \
   -DSTOP_COND=1 \
   -DPRINTF_COND=Main.verbose \
   -URANDOMIZE_GARBAGE_ASSIGN -URANDOMIZE_MEM_INIT \
+  -Wno-UNOPTTHREADS \
   -O3
 
+gen_verilog: $(generated_dir)/$(long_name).v $(generated_dir)/$(long_name).behav_srams.v $(generated_dir)/$(long_name).conf
+
 verilator_sim: $(emu)
+gen_firrtl: $(firrtl)
 essent_sim: $(emu_essent)
 
 $(emu): $(verilog) $(sim_dir)/SimpleHarness_verilator.cpp
 	mkdir -p $(generated_dir)/$(long_name)
-	$(VERILATOR) $(VERILATOR_FLAGS) --top Main -Mdir $(generated_dir)/$(long_name) \
-	-o $(abspath $(sim_dir))/$@ $(verilog) $(sim_dir)/SimpleHarness_verilator.cpp
-	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir)/$(long_name) -f VMain.mk
+	$(VERILATOR) $(VERILATOR_FLAGS) --top Main -Mdir $(generated_dir)/$(long_name)/$(THREADS)t \
+	-o $(abspath $(sim_dir))/$@ $(verilog) -I$(generated_dir)/$(long_name) $(sim_dir)/SimpleHarness_verilator.cpp
+	$(MAKE) VM_PARALLEL_BUILDS=1 -C $(generated_dir)/$(long_name)/$(THREADS)t -f VMain.mk
 
-essent_model = $(generated_dir)/$(emu_essent).h
+essent_model = $(generated_dir)/$(long_name)/$(THREADS)t/$(MODEL).h
+
 
 essent_cxx_flags = \
   -std=c++11 \
@@ -106,13 +125,17 @@ endif
 # RepCut needs KaHyPar to be in PATH
 PATH := $(PATH):$(kahypar_path)
 
-$(essent_model): $(firrtl) $(kahypar_bin)
-	$(essent) -O0 --parallel $(THREADS) $(firrtl)
-	mv $(generated_dir)/SimpleHarness.h $@
+$(hi_firrtl_copy): $(hi_firrtl)
+	mkdir -p $(dir $(hi_firrtl_copy))
+	cp $(hi_firrtl) $(hi_firrtl_copy)
+
+$(essent_model): $(hi_firrtl_copy) $(kahypar_bin)
+	$(essent) -O0 --parallel $(THREADS) $(hi_firrtl_copy)
 
 $(emu_essent): $(sim_dir)/SimpleHarness_essent.cpp $(essent_model)
 	$(essent_CXX) -O3 $(essent_cxx_flags)  \
     $(sim_dir)/SimpleHarness_essent.cpp -o $@
+
 
 clean:
 	rm -rf $(generated_dir) verilator-* essent-* repcut-*
