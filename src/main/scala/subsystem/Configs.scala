@@ -524,3 +524,12 @@ class WithExtTLMemSize(n: BigInt) extends Config((site, here, up) => {
 class WithNoDebug extends Config((site, here, up) => {
   case DebugModuleKey => None
 })
+
+class WithNoPLIC extends Config((site, here, up) => {
+  case PLICKey => None
+  case NExtTopInterrupts => 0
+})
+
+class WithNoCLINT extends Config((site, here, up) => {
+  case CLINTKey => None
+})

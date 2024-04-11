@@ -8,6 +8,8 @@ import freechips.rocketchip.devices.debug.Debug
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.util.AsyncResetReg
 import freechips.rocketchip.devices.debug.DebugModuleKey
+import chisel3.util.Fill
+import freechips.rocketchip.devices.tilelink.PLICKey
 
 
 class TestHarness()(implicit p: Parameters) extends Module {
@@ -50,6 +52,12 @@ class SimpleHarness()(implicit p: Parameters) extends Module {
   dut.tieOffInterrupts()
   SimAXIMem.connectMem(ldut)
   SimAXIMem.connectMMIO(ldut)
+
+  // no interrupts coming from the outside
+  dut.meip.map { case v =>
+    v.foreach( _ := false.B )
+  }
+
   ldut.l2_frontend_bus_axi4.foreach(_.tieoff)
   if (p(DebugModuleKey).nonEmpty) {
     Debug.connectDebug(dut.debug, dut.resetctrl, dut.psd, clock, reset.asBool, io.success)

@@ -92,6 +92,7 @@ class ParendiBaseConfig extends Config(
   new WithTLBackingMMIOToHost ++ // toHost snooper
   new WithDefaultMMIOPort ++
   new WithNoDebug ++
+  new WithSynchronousRocketTiles ++
   new WithBootROMFile("./bootrom/bootrom_simple.img") ++
   new WithExtTLMemSize(1 << 18) ++
   new WithTLMemPort() ++
@@ -99,7 +100,7 @@ class ParendiBaseConfig extends Config(
   new WithNoSlavePort() ++
   new WithTimebase(BigInt(1000000)) ++ // 1 MHz
   new WithDTS("freechips,rocketchip-vlsc", Nil) ++
-  new WithNExtTopInterrupts(2) ++
+  new WithNExtTopInterrupts(0) ++
   new WithoutTLMonitors() ++
   new BaseSubsystemConfig()
 )
@@ -127,6 +128,8 @@ class ParendiBig5CoreConfig extends ParendiBigNCoreConfig(5)
 class ParendiBig6CoreConfig extends ParendiBigNCoreConfig(6)
 class ParendiBig7CoreConfig extends ParendiBigNCoreConfig(7)
 class ParendiBig8CoreConfig extends ParendiBigNCoreConfig(8)
+class ParendiBig12CoreConfig extends ParendiBigNCoreConfig(12)
+class ParendiBig16CoreConfig extends ParendiBigNCoreConfig(16)
 
 
 class ParendiSmall1CoreConfig extends ParendiSmallNCoreConfig(1)
@@ -137,4 +140,6 @@ class ParendiSmall5CoreConfig extends ParendiSmallNCoreConfig(5)
 class ParendiSmall6CoreConfig extends ParendiSmallNCoreConfig(6)
 class ParendiSmall7CoreConfig extends ParendiSmallNCoreConfig(7)
 class ParendiSmall8CoreConfig extends ParendiSmallNCoreConfig(8)
+class ParendiSmall12CoreConfig extends ParendiSmallNCoreConfig(12)
+class ParendiSmall16CoreConfig extends ParendiSmallNCoreConfig(16)
 
