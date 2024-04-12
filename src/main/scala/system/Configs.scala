@@ -130,6 +130,8 @@ class ParendiBig7CoreConfig extends ParendiBigNCoreConfig(7)
 class ParendiBig8CoreConfig extends ParendiBigNCoreConfig(8)
 class ParendiBig12CoreConfig extends ParendiBigNCoreConfig(12)
 class ParendiBig16CoreConfig extends ParendiBigNCoreConfig(16)
+class ParendiBig24CoreConfig extends ParendiBigNCoreConfig(24)
+class ParendiBig32CoreConfig extends ParendiBigNCoreConfig(32)
 
 
 class ParendiSmall1CoreConfig extends ParendiSmallNCoreConfig(1)
@@ -142,4 +144,6 @@ class ParendiSmall7CoreConfig extends ParendiSmallNCoreConfig(7)
 class ParendiSmall8CoreConfig extends ParendiSmallNCoreConfig(8)
 class ParendiSmall12CoreConfig extends ParendiSmallNCoreConfig(12)
 class ParendiSmall16CoreConfig extends ParendiSmallNCoreConfig(16)
+class ParendiSmall24CoreConfig extends ParendiSmallNCoreConfig(24)
+class ParendiSmall32CoreConfig extends ParendiSmallNCoreConfig(32)
 

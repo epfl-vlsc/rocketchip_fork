@@ -1,5 +1,5 @@
 THREADS ?= 1 \
-	2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32
+	2 4 6 8 10 12 14 16
 
 MODEL = SimpleHarness
 
@@ -10,6 +10,8 @@ CONFIGS = \
 	ParendiBig8CoreConfig \
 	ParendiBig12CoreConfig \
 	ParendiBig16CoreConfig \
+	ParendiBig24CoreConfig \
+	ParendiBig32CoreConfig \
 	ParendiSmall1CoreConfig \
 	ParendiSmall2CoreConfig \
 	ParendiSmall4CoreConfig \
@@ -24,6 +26,11 @@ JVM_MEMORY ?= 16G
 TARGET_CONFIGS = $(foreach cfg,$(foreach item,$(addprefix $(PROJECT).,$(CONFIGS)), $(addprefix $(item)-, $(THREADS))), $(addprefix $(cfg),t))
 ESSENT_TARGETS = $(addprefix essent-,$(TARGET_CONFIGS))
 VERILATOR_TARGETS = $(addprefix verilator-,$(TARGET_CONFIGS))
+
+VERILOG_TARGETS = $(patsubst %,generated-src/%.v,$(addprefix $(PROJECT).,$(CONFIGS)))
+BEHAV_SRAM_TARGETS = $(patsubst %.v,%.behav_srams.v,$(VERILATOR_TARGETS))
+
+
 
 MAKE_GEN = $(MAKE) -f SimpleTestDriver.mk CONFIG=$* MODEL=$(MODEL) JVM_MEMORY=$(JVM_MEMORY)
 
@@ -56,8 +63,22 @@ show_essent_targets:
 		echo $$t; \
 	done;
 
+verilog_files: $(VERILOG_TARGETS)
+
+verilog_archive: verilog_archive.tar.gz
+
+verilog_archive.tar.gz: $(VERILOG_TARGETS)
+	tar -czf $@ $(VERILOG_TARGETS) $(BEHAV_SRAM_TARGETS)
+
 verilator_binaries: $(VERILATOR_TARGETS)
+
+verilator_binaries.tar.gz: $(VERILATOR_TARGETS)
+	tar -czf $@ $(VERILATOR_TARGETS)
+
 essent_binaries: $(ESSENT_TARGETS)
+
+esssent_binaries.tar.gz: $(ESSENT_TARGETS)
+	tar -czf $@ $(ESSENT_TARGETS)
 
 clean:
 	rm -rf generated-src $(VERILATOR_TARGETS) $(ESSENT_TARGETS)

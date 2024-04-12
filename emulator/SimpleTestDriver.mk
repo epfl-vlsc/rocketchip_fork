@@ -10,6 +10,9 @@ include $(base_dir)/Makefrag
 
 THREADS ?= 1
 
+VERBOSE_SIM ?= 0
+
+
 emu = verilator-$(CONFIG)-$(THREADS)t
 emu_debug = $(emu)-debug
 
@@ -59,6 +62,15 @@ $(generated_dir)/$(long_name).fir $(generated_dir)/$(long_name).d: $(ROCKET_CHIP
 	mkdir -p $(dir $@)
 	cd $(base_dir) && $(GENERATOR) -td $(generated_dir) -T $(PROJECT).$(MODEL) -C $(CONFIG) $(CHISEL_OPTIONS)
 
+ifeq ($(VERBOSE_SIM),1)
+  FIRRTL_TRANSFORMS = \
+	  firrtl.passes.InlineInstances
+else
+  # Remove all internal printing
+  FIRRTL_TRANSFORMS = \
+	  firrtl.passes.InlineInstances \
+    freechips.rocketchip.system.RemovePrintfAndStop
+endif
 
 
 FIRRTL_SUBCOMMAND = \
@@ -88,16 +100,18 @@ VERILATOR := verilator --cc --exe --threads $(THREADS)
 
 
 VERILATOR_FLAGS := --top-module Main \
-  -DSTOP_COND=1 \
-  -DPRINTF_COND=Main.verbose \
   -URANDOMIZE_GARBAGE_ASSIGN -URANDOMIZE_MEM_INIT \
   -Wno-UNOPTTHREADS \
+  -DSTOP_COND=!Main.reset \
+  -DPRINTF_COND=Main.verbose \
   -O3
+
+
 
 gen_verilog: $(generated_dir)/$(long_name).v $(generated_dir)/$(long_name).behav_srams.v $(generated_dir)/$(long_name).conf
 
 verilator_sim: $(emu)
-gen_firrtl: $(firrtl)
+gen_firrtl: $(firrtl) $(hi_firrtl)
 essent_sim: $(emu_essent)
 
 $(emu): $(verilog) $(sim_dir)/SimpleHarness_verilator.cpp
