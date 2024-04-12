@@ -34,7 +34,7 @@ BEHAV_SRAM_TARGETS = $(patsubst %.v,%.behav_srams.v,$(VERILATOR_TARGETS))
 
 MAKE_GEN = $(MAKE) -f SimpleTestDriver.mk CONFIG=$* MODEL=$(MODEL) JVM_MEMORY=$(JVM_MEMORY)
 
-generated-src/%.fir:
+generated-src/%.fir generated-src/%.hi.fir:
 	$(MAKE_GEN)	gen_firrtl
 
 generated-src/%.v: generated-src/%.fir
@@ -45,12 +45,12 @@ MAKE_BIN = $(MAKE) -f SimpleTestDriver.mk CONFIG=$(word 2,$(subst -, ,$@)) MODEL
 
 
 .SECONDEXPANSION:
-verilator-%: generated-src/$$(word 1,$$(subst -, ,$$*)).v
+verilator-% : generated-src/$$(word 1,$$(subst -, ,$$*)).v
 	@echo "Target = $@"
 	@echo "Depends on = $<"
-	$(MAKE_BIN) $(word 1,$(subst -, ,$@))_sim
+	$(MAKE_BIN) $(word 1,$(subst -, ,$@))_sim -j12
 
-essent-%: generated-src/$$(word 1,$$(subst -, ,$$*)).v
+essent-% : generated-src/$$(word 1,$$(subst -, ,$$*)).hi.fir
 	$(MAKE_BIN) $(word 1,$(subst -, ,$@))_sim
 
 
